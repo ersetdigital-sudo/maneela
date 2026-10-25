@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pembayaran · Maneela</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/assets/theme.css">
+</head><body class="nofoot-m">
+<main class="wrap pt-6 sm:pt-10" id="root"></main>
+<script src="/assets/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+const {S,ico,rp}=CZ,q=k=>CZ.qs(k)||'';
+const s=q('s'),p=q('p'),i=q('i'),n=q('n'),a=parseInt(q('a'))||0,R=document.getElementById('root');
+if(!S[s]||!i||!a){document.body.classList.remove('nofoot-m');
+  R.innerHTML=`<div class="card shadow-off max-w-lg mx-auto p-8 sm:p-10 text-center mt-6"><div class="w-16 h-16 rounded-2xl bg-pink c-red grid place-items-center mx-auto">${ico('receipt','!w-8 !h-8')}</div><h1 class="font-black text-3xl mt-5">Belum ada pesanan</h1><p class="c-mut mt-2">Pilih produk dulu, nanti ringkasan pesananmu muncul di sini.</p><a href="/#layanan" class="btn btn-red mt-6">Pilih produk</a></div>`;return;}
+const X=S[s];
+const M=[['qris','QRIS','qr',0,'Semua e-wallet & m-banking'],['bca','VA BCA','bank',4000,'Virtual account'],['bri','VA BRI','bank',4000,'Virtual account'],['mandiri','VA Mandiri','bank',4000,'Virtual account'],['dana','DANA','wallet',0,'Gratis biaya'],['ovo','OVO','wallet',0,'Gratis biaya'],['alfa','Alfamart','store',2500,'Bayar di kasir'],['indo','Indomaret','store',2500,'Bayar di kasir']];
+let m='qris',disc=0,promo='';
+R.classList.add('pb-safe');
+R.innerHTML=`<a href="/produk?s=${s}" class="text-sm font-semibold c-mut hover:text-[#228B22]">← Ubah pesanan</a>
+<h1 class="font-black text-4xl sm:text-5xl mt-3">Pembayaran</h1>
+<div class="grid lg:grid-cols-[1fr_360px] gap-6 mt-7 items-start">
+ <div class="space-y-4">
+  <section class="card p-5 sm:p-6"><h2 class="font-extrabold text-xl">Metode bayar</h2><div id="ms" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4"></div></section>
+  <section class="card p-5 sm:p-6"><h2 class="font-extrabold text-xl">Kode promo</h2><div class="flex gap-2 mt-4"><input id="pc" class="input uppercase" placeholder="Contoh: MANEELA5"><button id="pa" class="btn btn-ghost shrink-0">Pakai</button></div><p id="pm" class="text-sm mt-2 c-mut">Punya kode? Masukkan di sini.</p></section>
+  <section class="card p-5 sm:p-6"><h2 class="font-extrabold text-xl">Email <span class="c-mut font-semibold text-base">(opsional)</span></h2><input id="em" type="email" class="input mt-4" placeholder="kamu@email.com"><p class="text-xs c-mut mt-2">Untuk kirim bukti transaksi.</p></section>
+ </div>
+ <aside class="lg:sticky lg:top-[88px]"><div class="card shadow-off p-6"><h3 class="font-extrabold text-xl">Ringkasan pesanan</h3>
+  <dl class="mt-4 space-y-3 text-sm" id="sum"></dl>
+  <div class="border-t mt-5 pt-4 flex justify-between items-end" style="border-color:var(--line)"><span class="c-mut text-sm">Total bayar</span><span class="fh font-black text-3xl c-red" id="tot"></span></div>
+  <button class="btn btn-red w-full mt-5 hidden lg:flex" id="pay">Bayar sekarang</button></div></aside>
+</div>
+<div class="fbar lg:hidden"><div class="min-w-0 flex-1"><div class="text-xs opacity-70 truncate" id="mst"></div><div class="fh font-black text-lg leading-tight" id="mtot"></div></div><button class="btn btn-red" id="mpay">Bayar</button></div>`;
+const ms=document.getElementById('ms');
+const draw=()=>{ms.innerHTML=M.map(([k,t,ic,f,d])=>`<button class="opt !min-h-0 flex items-center gap-3 ${m===k?'on':''}" data-m="${k}"><span class="tick">${ico('check','!w-3.5 !h-3.5')}</span><span class="w-10 h-10 rounded-xl bg-pink c-red grid place-items-center shrink-0">${ico(ic)}</span><span><span class="block font-bold">${t}</span><span class="block text-xs c-mut">${d} · ${f?'+'+rp(f):'Gratis'}</span></span></button>`).join('');
+ ms.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{m=b.dataset.m;draw();sync()});};
+const fee=()=>M.find(x=>x[0]===m)[3], total=()=>a+fee()-disc;
+function sync(){const mm=M.find(x=>x[0]===m);
+ document.getElementById('sum').innerHTML=[['Produk',X.name],['Provider',p],['Item',i],['Tujuan',n],['Harga',rp(a)],['Biaya '+mm[1],fee()?rp(fee()):'Gratis'],...(disc?[['Promo '+promo,'−'+rp(disc)]]:[])].map(([x,y])=>`<div class="flex justify-between gap-4"><dt class="c-mut">${x}</dt><dd class="font-semibold text-right break-all ${x.startsWith('Promo')?'c-red':''}">${y}</dd></div>`).join('');
+ document.getElementById('tot').textContent=rp(total());document.getElementById('mtot').textContent=rp(total());document.getElementById('mst').textContent=i+' · '+mm[1];}
+document.getElementById('pa').onclick=()=>{const c=document.getElementById('pc').value.trim().toUpperCase(),pm=document.getElementById('pm');
+ if(c==='MANEELA5'){disc=Math.min(Math.round(a*.05),5000);promo=c;pm.innerHTML=`<span class="c-red font-semibold">Promo aktif: hemat ${rp(disc)}.</span>`}else{disc=0;promo='';pm.textContent=c?'Kode promo tidak berlaku.':'Punya kode? Masukkan di sini.'}sync();};
+const pay=()=>{const id='MNL-'+Math.random().toString(36).slice(2,6).toUpperCase();
+ const o={id,s,produk:X.name,p,i,n,a,metode:M.find(x=>x[0]===m)[1],fee:fee(),disc,promo,total:total(),email:document.getElementById('em').value.trim(),t:Date.now(),status:'Berhasil'};
+ const all=CZ.orders();all.unshift(o);localStorage.setItem('mnl_orders',JSON.stringify(all.slice(0,30)));location.href='/invoice?id='+id;};
+document.getElementById('pay').onclick=pay;document.getElementById('mpay').onclick=pay;
+draw();sync();
+});
+</script>
+</body></html>

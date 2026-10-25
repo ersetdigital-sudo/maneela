@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Produk · Maneela</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/assets/theme.css">
+</head><body class="nofoot-m">
+<main class="pb-safe">
+  <div class="wrap pt-4 sm:pt-6">
+    <section id="banner" class="rounded-[26px] p-6 sm:p-9 relative overflow-hidden" style="background:var(--red);color:var(--bg)"></section>
+    <div class="hscroll mt-4" id="other"></div>
+  </div>
+  <div class="wrap grid lg:grid-cols-[1fr_360px] gap-6 mt-6 items-start">
+    <div class="space-y-4" id="form"></div>
+    <aside class="hidden lg:block sticky top-[88px]">
+      <div class="card shadow-off p-6">
+        <h3 class="font-extrabold text-xl">Ringkasan</h3>
+        <dl class="mt-4 space-y-3 text-sm" id="sum"></dl>
+        <div class="border-t mt-5 pt-4 flex justify-between items-end" style="border-color:var(--line)"><span class="c-mut text-sm">Total</span><span class="fh font-black text-3xl c-red" id="tot">Rp0</span></div>
+        <button class="btn btn-red w-full mt-5" id="go" disabled>Lanjut bayar</button>
+        <p class="text-xs c-mut mt-3 text-center">Tanpa akun. Gagal = refund otomatis.</p>
+      </div>
+    </aside>
+  </div>
+</main>
+<div class="fbar lg:hidden">
+  <div class="min-w-0 flex-1"><div class="text-xs opacity-70 truncate" id="mst">Isi nomor HP dulu</div><div class="fh font-black text-lg leading-tight" id="mtot">Rp0</div></div>
+  <button class="btn btn-red" id="mgo" disabled>Bayar</button>
+</div>
+<script src="/assets/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+const {S,order,ico,rp,detectOp,normPhone,bill}=CZ;
+const slug=S[CZ.qs('s')]?CZ.qs('s'):'pulsa', X=S[slug];
+document.title=X.name+' · Maneela';
+let st={prov:X.phone?null:(X.prov.length===1?X.prov[0]:null),item:null,target:'',bill:null};
+
+document.getElementById('banner').innerHTML=`<div aria-hidden="true" class="hidden lg:block absolute -right-10 -top-10 w-56 h-56 rounded-full" style="border:28px solid rgba(255,219,89,.18)"></div>
+<div class="relative flex flex-col sm:flex-row sm:items-center gap-5">
+ <div class="w-16 h-16 rounded-2xl grid place-items-center shrink-0" style="background:var(--bg);color:var(--red)">${ico(X.icon,'!w-8 !h-8')}</div>
+ <div><div class="text-sm font-semibold opacity-75">${X.catL}</div><h1 class="font-black text-4xl sm:text-5xl leading-none mt-1">${X.name}</h1><p class="opacity-85 mt-2 max-w-lg">${X.desc}</p></div></div>
+<div class="relative flex flex-wrap gap-2 mt-6"><span class="chip">${ico('bolt','!w-4 !h-4')} Proses ±5 detik</span><span class="chip">${ico('refund','!w-4 !h-4')} Gagal = refund</span><span class="chip">${ico('clock','!w-4 !h-4')} Buka 24 jam</span></div>`;
+document.getElementById('other').innerHTML=order.map(s=>`<a href="/produk?s=${s}" class="prov ${s===slug?'on':''}"><span class="av">${ico(S[s].icon,'!w-4 !h-4')}</span>${S[s].name}</a>`).join('');
+
+const steps=[{k:'t'}]; if(!X.phone) steps.push({k:'p'}); steps.push({k:'i'});
+const F=document.getElementById('form');
+F.innerHTML=steps.map((s,i)=>`<section class="card p-5 sm:p-6" id="sec-${s.k}"><div class="flex items-center gap-3"><span class="step-n" id="n-${s.k}">${i+1}</span><h2 class="font-extrabold text-xl" id="h-${s.k}"></h2></div><div class="mt-4" id="b-${s.k}"></div></section>`).join('');
+
+// 1 tujuan
+document.getElementById('h-t').textContent=X.label;
+document.getElementById('b-t').innerHTML=`<div class="relative"><input id="tg" class="input ${X.phone?'pr-28':''}" inputmode="${slug==='game'?'text':'numeric'}" placeholder="${X.ph}"><span id="opb" class="badge absolute right-2 top-1/2 -translate-y-1/2 !text-xs hidden"></span></div><p class="text-xs c-mut mt-2" id="th">${X.phone?'Operator terdeteksi otomatis. Bisa pakai awalan 08 atau 62.':X.bill?'Tagihan muncul otomatis setelah ID diisi (data simulasi).':'Pastikan nomor/ID sudah benar sebelum bayar.'}</p>`;
+const tg=document.getElementById('tg');
+tg.addEventListener('input',()=>{
+  st.target=tg.value.trim();
+  if(X.phone){const o=detectOp(tg.value);const ob=document.getElementById('opb');ob.classList.toggle('hidden',!o);ob.textContent=o||'';
+    const len=normPhone(tg.value).length;document.getElementById('th').textContent=o?`Nomor ${o} terdeteksi.`:len>=4?'Operator tidak dikenali, cek lagi nomornya.':'Operator terdeteksi otomatis. Bisa pakai awalan 08 atau 62.';
+    if(o!==st.prov){st.prov=o;st.item=null;items()}}
+  if(X.bill) items();
+  sync();
+});
+
+// 2 provider
+if(!X.phone){document.getElementById('h-p').textContent=slug==='bpjs'?'Pilih kelas':slug==='game'?'Pilih game':'Pilih provider';
+  const b=document.getElementById('b-p');const draw=()=>{b.innerHTML=`<div class="hscroll sm:flex-wrap">${X.prov.map(p=>`<button class="prov ${st.prov===p?'on':''}" data-p="${p}"><span class="av">${p.replace(/[^A-Za-z0-9 ]/g,'').split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase()}</span>${p}</button>`).join('')}</div>`;
+  b.querySelectorAll('.prov').forEach(x=>x.onclick=()=>{st.prov=x.dataset.p;st.item=null;draw();items();sync()});};draw();}
+
+// 3 item
+document.getElementById('h-i').textContent=X.bill?'Cek tagihan':'Pilih nominal';
+function items(){const b=document.getElementById('b-i');
+  if(X.bill){const ok=st.prov&&st.target.replace(/\D/g,'').length>=6;
+    if(!ok){st.bill=null;st.item=null;b.innerHTML=`<p class="c-mut text-sm">${!st.prov?'Pilih provider dan ':''}isi ID pelanggan minimal 6 digit untuk melihat tagihan.</p>`;return;}
+    st.bill=bill(slug,st.prov,st.target);st.item={n:`Tagihan ${st.bill.periode}`,p:st.bill.total};const B=st.bill;
+    b.innerHTML=`<div class="rounded-2xl p-5" style="background:var(--bg);border:1px dashed rgba(34,139,34,.3)"><div class="flex justify-between gap-3"><div><div class="text-xs c-mut">Nama pelanggan</div><div class="font-bold">${B.nama}</div></div><span class="badge !text-xs h-fit">Belum dibayar</span></div>
+    <div class="grid grid-cols-2 gap-3 mt-4 text-sm"><div><div class="c-mut text-xs">Periode</div><b>${B.periode}</b></div><div><div class="c-mut text-xs">Tagihan</div><b>${rp(B.tagihan)}</b></div><div><div class="c-mut text-xs">Admin</div><b>${rp(B.admin)}</b></div><div><div class="c-mut text-xs">Total</div><b class="c-red">${rp(B.total)}</b></div></div></div><p class="text-xs c-mut mt-2">Data tagihan masih simulasi.</p>`;return;}
+  if(!st.prov){b.innerHTML=`<p class="c-mut text-sm">${X.phone?'Isi nomor HP dulu, nominal muncul sesuai operator.':'Pilih provider dulu.'}</p>`;return;}
+  const list=X.items[st.prov];
+  b.innerHTML=`<div class="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2">${list.map((it,i)=>`<button class="opt ${st.item&&st.item.n===it.n?'on':''}" data-k="${i}">${i===2?'<span class="pop">Populer</span>':''}<span class="tick">${ico('check','!w-3.5 !h-3.5')}</span><div class="fh font-extrabold text-[17px] leading-tight pr-6">${it.n}</div>${it.sub?`<div class="text-xs c-mut mt-1">${it.sub}</div>`:''}<div class="c-red font-bold mt-2">${rp(it.p)}</div></button>`).join('')}</div>`;
+  b.querySelectorAll('.opt').forEach(x=>x.onclick=()=>{st.item=list[+x.dataset.k];items();sync()});}
+items();
+
+function valid(){return st.target.length>=4&&st.prov&&st.item&&(!X.phone||detectOp(st.target));}
+function sync(){
+  const tOK=X.phone?!!detectOp(st.target)&&normPhone(st.target).length>=10:st.target.replace(/\s/g,'').length>=5;
+  document.getElementById('n-t').classList.toggle('done',tOK);
+  if(!X.phone)document.getElementById('n-p').classList.toggle('done',!!st.prov);
+  document.getElementById('n-i').classList.toggle('done',!!st.item);
+  const ok=tOK&&st.prov&&st.item, tot=st.item?st.item.p:0;
+  document.getElementById('sum').innerHTML=[['Produk',X.name],[X.phone?'Operator':'Provider',st.prov||'–'],['Item',st.item?st.item.n:'–'],['Tujuan',st.target||'–']].map(([a,b])=>`<div class="flex justify-between gap-4"><dt class="c-mut">${a}</dt><dd class="font-semibold text-right break-all">${b}</dd></div>`).join('');
+  document.getElementById('tot').textContent=rp(tot);document.getElementById('mtot').textContent=rp(tot);
+  document.getElementById('mst').textContent=!tOK?(X.phone?'Isi nomor HP dulu':'Isi '+X.label.toLowerCase()+' dulu'):!st.prov?'Pilih provider dulu':!st.item?(X.bill?'Tagihan belum muncul':'Pilih nominal dulu'):st.item.n;
+  ['go','mgo'].forEach(id=>document.getElementById(id).disabled=!ok);
+}
+const go=()=>{const n=X.phone?normPhone(st.target):st.target;location.href=`/bayar?s=${slug}&p=${encodeURIComponent(st.prov)}&i=${encodeURIComponent(st.item.n)}&n=${encodeURIComponent(n)}&a=${st.item.p}`};
+document.getElementById('go').onclick=go;document.getElementById('mgo').onclick=go;
+sync();
+});
+</script>
+</body></html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="id"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cek Invoice · Maneela</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="/assets/theme.css">
+<style>
+.ticket{position:relative;background:#fff;border-radius:28px;box-shadow:6px 6px 0 var(--pink);border:1px solid var(--line)}
+.perf{position:relative;height:0;border-top:2px dashed rgba(34,139,34,.22);margin:0 24px}
+.perf::before,.perf::after{content:"";position:absolute;top:-15px;width:28px;height:28px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.perf::before{left:-39px;clip-path:inset(0 0 0 50%)}.perf::after{right:-39px;clip-path:inset(0 50% 0 0)}
+.srch{background:var(--bg);border-radius:999px;padding:6px;display:flex;gap:6px;box-shadow:0 0 0 4px rgba(255,219,89,.35)}
+.srch input{flex:1;min-width:0;background:transparent;outline:none;padding:0 16px;font-size:17px;font-family:var(--fh);font-weight:700;letter-spacing:.04em;color:var(--ink)}
+.tl{position:relative;padding-left:28px}.tl::before{content:"";position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:rgba(34,139,34,.15)}
+.tl-dot{position:absolute;left:-28px;top:22px;width:20px;height:20px;border-radius:50%;background:var(--bg);border:2px solid var(--red);display:grid;place-items:center}
+.stp{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.stp i{width:22px;height:22px;border-radius:50%;background:var(--red);color:var(--bg);display:grid;place-items:center;font-style:normal}
+@keyframes popin{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.popin{animation:popin .45s cubic-bezier(.2,.8,.2,1)}
+</style>
+</head><body>
+<main class="wrap pt-4 sm:pt-6">
+  <section class="rounded-[32px] px-5 py-10 sm:px-10 sm:py-14 text-center relative overflow-hidden" style="background:var(--red);color:var(--bg)">
+    <div aria-hidden="true" class="hidden lg:block"><div class="float absolute top-8 left-12 w-12 h-12 rounded-full" style="background:var(--pink)"></div><div class="float absolute bottom-8 right-14 w-16 h-16 rounded-2xl rotate-12" style="border:3px solid rgba(255,219,89,.6);animation-delay:-3s"></div></div>
+    <span class="text-xs font-bold uppercase tracking-[.16em]" style="color:var(--pink)">Lacak pesanan</span>
+    <h1 class="font-black text-[34px] sm:text-6xl leading-[1.02] mt-3">Pesananmu udah<br>sampai mana?</h1>
+    <p class="opacity-80 mt-4 max-w-md mx-auto">Tempel kode invoice di bawah, status dan detailnya langsung kelihatan.</p>
+    <form id="f" class="srch max-w-xl mx-auto mt-7 text-left">
+      <span class="pl-3 grid place-items-center c-red" id="si"></span>
+      <input id="q" placeholder="MNL-XXXX" autocomplete="off" class="uppercase" aria-label="Kode invoice">
+      <button class="btn btn-red !min-h-[44px] !px-5">Lacak</button>
+    </form>
+  </section>
+
+  <div class="grid lg:grid-cols-[1.35fr_1fr] gap-8 mt-10 items-start">
+    <div id="res"></div>
+    <aside>
+      <div class="flex items-end justify-between"><h2 class="font-extrabold text-2xl">Terakhir kamu beli</h2><span class="text-xs c-mut font-semibold">5 terbaru</span></div>
+      <div id="hist" class="tl mt-5 space-y-3"></div>
+      <div class="mt-6 flex gap-3 items-start rounded-2xl p-4 text-sm" style="background:rgba(255,219,89,.3)"><span id="ni" class="c-red shrink-0"></span><p><b>Masih mode simulasi.</b> <span class="c-mut">Pesanan cuma tersimpan di browser ini dan belum diteruskan ke supplier.</span></p></div>
+    </aside>
+  </div>
+</main>
+<script src="/assets/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{
+const {ico,rp}=CZ;document.getElementById('si').innerHTML=ico('search');document.getElementById('ni').innerHTML=ico('clock');
+const all=CZ.orders(),res=document.getElementById('res'),q=document.getElementById('q');
+const tgl=t=>new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const empty=(t,d,cta)=>`<div class="ticket p-8 sm:p-10 text-center popin"><div class="w-16 h-16 rounded-full mx-auto grid place-items-center" style="background:rgba(255,219,89,.45);color:var(--red)">${ico('receipt','!w-8 !h-8')}</div><h3 class="font-black text-2xl mt-5">${t}</h3><p class="c-mut mt-2 max-w-sm mx-auto">${d}</p>${cta?'<a href="/#layanan" class="btn btn-red mt-6">Mulai belanja</a>':''}</div>`;
+function show(id){id=(id||'').trim().toUpperCase();
+ if(!id){res.innerHTML=empty('Belum ada yang dilacak','Masukkan kode invoice di atas, atau pilih salah satu dari riwayat di samping.',!all.length);return}
+ const o=all.find(x=>x.id===id);
+ if(!o){res.innerHTML=empty(`${id} nggak ketemu`,'Cek lagi kodenya ya. Riwayat cuma tersimpan di browser tempat kamu bertransaksi.',false);return}
+ const row=(a,b,c='')=>`<div class="flex justify-between gap-4 py-2"><span class="c-mut">${a}</span><span class="font-semibold text-right break-all ${c}">${b}</span></div>`;
+ res.innerHTML=`<article class="ticket popin overflow-hidden">
+  <div class="p-6 sm:p-8">
+   <div class="flex items-start justify-between gap-4">
+    <div class="flex items-center gap-3"><span class="w-12 h-12 rounded-full grid place-items-center shrink-0" style="background:var(--red);color:var(--bg)">${ico(CZ.S[o.s]?CZ.S[o.s].icon:'receipt')}</span><div><div class="text-xs c-mut font-semibold">${o.produk}</div><div class="fh font-extrabold text-lg leading-tight">${o.i}</div></div></div>
+    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0" style="background:var(--pink);color:var(--ink)">${ico('check','!w-3.5 !h-3.5')}${o.status}</span>
+   </div>
+   <div class="mt-6 grid grid-cols-3 gap-2">${['Dibayar','Diproses','Masuk'].map(x=>`<div class="stp"><i>${ico('check','!w-3 !h-3')}</i>${x}</div>`).join('')}</div>
+   <div class="h-1.5 rounded-full mt-3" style="background:var(--red)"></div>
+  </div>
+  <div class="perf"></div>
+  <div class="p-6 sm:p-8 text-sm">
+   <div class="flex items-center justify-between mb-3"><div><div class="text-xs c-mut">Kode invoice</div><div class="fh font-black text-2xl tracking-wide">${o.id}</div></div><button id="cp" class="w-10 h-10 rounded-full grid place-items-center" style="background:var(--bg)" aria-label="Salin kode">${ico('copy','!w-5 !h-5')}</button></div>
+   ${row('Waktu',tgl(o.t))}${row('Tujuan',o.n)}${row('Provider',o.p)}${row('Metode bayar',o.metode)}${row('Harga',rp(o.a))}${row('Biaya',o.fee?rp(o.fee):'Gratis')}${o.disc?row('Promo '+o.promo,'−'+rp(o.disc),'c-red'):''}
+   <div class="flex justify-between items-end mt-4 pt-4" style="border-top:1px solid var(--line)"><span class="c-mut">Total dibayar</span><span class="fh font-black text-3xl c-red">${rp(o.total)}</span></div>
+  </div></article>`;
+ document.getElementById('cp').onclick=e=>{navigator.clipboard&&navigator.clipboard.writeText(o.id);e.currentTarget.innerHTML=ico('check','!w-5 !h-5')};
+ document.querySelectorAll('[data-id]').forEach(b=>b.style.borderColor=b.dataset.id===o.id?'var(--red)':'');}
+document.getElementById('f').onsubmit=e=>{e.preventDefault();show(q.value);history.replaceState(null,'','?id='+q.value.trim().toUpperCase())};
+const h=document.getElementById('hist');
+h.innerHTML=all.length?all.slice(0,5).map(o=>`<button data-id="${o.id}" class="relative card w-full p-4 text-left transition hover:-translate-y-0.5"><span class="tl-dot"><span class="w-2 h-2 rounded-full" style="background:var(--red)"></span></span><span class="flex justify-between gap-3"><span class="min-w-0"><span class="block font-bold truncate">${o.i}</span><span class="block text-xs c-mut mt-0.5">${o.id} · ${tgl(o.t)}</span></span><span class="fh font-extrabold c-red shrink-0">${rp(o.total)}</span></span></button>`).join(''):`<div class="card p-5 text-sm c-mut relative"><span class="tl-dot"></span>Belum ada transaksi di perangkat ini. <a href="/#layanan" class="c-red font-semibold">Coba top up pertama →</a></div>`;
+h.querySelectorAll('button').forEach(b=>b.onclick=()=>{q.value=b.dataset.id;show(b.dataset.id);res.scrollIntoView({behavior:'smooth',block:'start'})});
+const id=CZ.qs('id');if(id)q.value=id;show(id);
+});
+</script>
+</body></html>
