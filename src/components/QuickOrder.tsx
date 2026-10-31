@@ -8,17 +8,17 @@ import {
   formatRupiah,
   itemsFor,
   normalizePhone,
-  services,
+  type Service,
 } from "@/lib/catalog";
 import { Icon } from "./Icon";
 
-export function QuickOrder() {
+export function QuickOrder({ service }: { service: Service }) {
   const router = useRouter();
   const [number, setNumber] = useState("");
   const [operator, setOperator] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const options = itemsFor(services.pulsa, operator ?? "Telkomsel");
+  const options = itemsFor(service, operator ?? "Telkomsel");
   const digits = normalizePhone(number).length;
   const item = selected !== null ? options[selected] : null;
   const canContinue = !!operator && !!item && digits >= 10;
@@ -40,6 +40,8 @@ export function QuickOrder() {
       i: item.name,
       n: normalizePhone(number),
       a: String(item.price),
+      sid: service.dbServiceId ?? "",
+      pid: item.id ?? "",
     });
     router.push(`/bayar/?${params.toString()}`);
   }

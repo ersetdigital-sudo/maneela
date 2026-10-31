@@ -3,6 +3,7 @@ import { BentoGrid } from "@/components/BentoGrid";
 import { CountUp } from "@/components/CountUp";
 import { Icon } from "@/components/Icon";
 import { QuickOrder } from "@/components/QuickOrder";
+import { getStorefront } from "@/lib/catalog-hydrate";
 import { Reveal } from "@/components/Reveal";
 import { WordRotator } from "@/components/WordRotator";
 
@@ -57,7 +58,9 @@ const steps = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const storefront = await getStorefront();
+
   return (
     <main>
       <section className="wrap pt-4 sm:pt-6">
@@ -134,7 +137,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <QuickOrder />
+        <QuickOrder service={storefront.services.pulsa} />
       </section>
 
       <div className="h-12" />

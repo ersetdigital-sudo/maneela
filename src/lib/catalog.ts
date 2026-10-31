@@ -17,14 +17,7 @@ export type Slug =
 
 export type Category = "isi" | "tagihan" | "hiburan";
 
-export type Item = { name: string; price: number; sub?: string };
-
-export type Bill = Item & {
-  customer: string;
-  period: string;
-  base: number;
-  admin: number;
-};
+export type Item = { name: string; price: number; sub?: string; id?: string };
 
 export type Service = {
   slug: Slug;
@@ -41,6 +34,8 @@ export type Service = {
   providers: string[];
   items?: Item[];
   byProvider?: Record<string, Item[]>;
+  dbServiceId?: string;
+  billItem?: Item | null;
 };
 
 const rp = (value: number) => `Rp${Math.round(value).toLocaleString("id-ID")}`;
@@ -318,35 +313,4 @@ export function providerInitials(name: string) {
 export function itemsFor(service: Service, provider: string | null): Item[] {
   if (!provider) return service.items ?? [];
   return service.byProvider?.[provider] ?? service.items ?? [];
-}
-
-export function billFor(slug: Slug, provider: string, target: string): Bill | null {
-  const service = services[slug];
-  if (!service.bill) return null;
-
-  let hash = 0;
-  for (const character of target + provider) {
-    hash = (hash * 31 + character.charCodeAt(0)) % 100000;
-  }
-
-  const baseMap: Partial<Record<Slug, number>> = {
-    pdam: 85000,
-    "tv-internet": 330000,
-    multifinance: 780000,
-  };
-  const base = baseMap[slug] ?? 85000;
-  const amount =
-    Math.round((base + hash * (slug === "multifinance" ? 3 : 1.5)) / 100) * 100;
-  const names = ["Budi Santoso", "Siti Rahma", "Andi Wijaya", "Dewi Lestari", "Rizky Pratama", "Nur Aini"];
-  const months = ["Okt 2026", "Sep–Okt 2026"];
-  const admin = service.admin ?? 2500;
-
-  return {
-    name: `Tagihan ${months[0]}`,
-    price: amount + admin,
-    customer: names[hash % names.length],
-    period: months[hash % 2],
-    base: amount,
-    admin,
-  };
 }

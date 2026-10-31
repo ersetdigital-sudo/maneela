@@ -1,51 +1,95 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {
-  ADMIN_WHATSAPP_URL,
-  formatRupiah,
-  services,
-} from "@/lib/catalog";
-import { findOrder, getOrders, type Order } from "@/lib/store";
-import { Icon, ServiceIcon } from "./Icon";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ADMIN_WHATSAPP_URL, formatRupiah } from "@/lib/catalog";
+import { getRecentInvoices, type RecentInvoice } from "@/lib/store";
+import { Icon } from "./Icon";
 
-const steps = [
-  { label: "Dibuat", state: "done" },
-  { label: "Dicek", state: "current" },
-  { label: "Diproses", state: "next" },
+type PublicStatus = "success" | "processing" | "pending" | "expired";
+
+type ApiOrder = {
+  inv: string;
+  status: PublicStatus;
+  service: string;
+  product: string;
+  lines: [string, string][];
+  method: string;
+  total: number;
+  sn: string;
+  label: string;
+  created: number;
+  updated: number;
+  paidAt?: number;
+};
+
+const statusText: Record<PublicStatus, string> = {
+  pending: "Menunggu pembayaran",
+  processing: "Sedang diproses",
+  success: "Selesai",
+  expired: "Dibatalkan",
+};
+
+const steps: { label: string }[] = [
+  { label: "Dibuat" },
+  { label: "Dicek" },
+  { label: "Diproses" },
 ];
+
+function stepState(
+  index: number,
+  status: PublicStatus,
+): "done" | "current" | "next" {
+  if (index === 0) return "done";
+  if (index === 1) {
+    if (status === "processing" || status === "success") return "done";
+    if (status === "pending") return "current";
+    return "next";
+  }
+  if (status === "success") return "done";
+  if (status === "processing") return "current";
+  return "next";
+}
 
 export function InvoiceClient() {
   const params = useSearchParams();
   const initialId = params.get("id") ?? "";
   const [query, setQuery] = useState(initialId);
-  const [result, setResult] = useState<Order | null>(null);
+  const [result, setResult] = useState<ApiOrder | null>(null);
   const [searched, setSearched] = useState(false);
-  const [history, setHistory] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<RecentInvoice[]>([]);
   const [copied, setCopied] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setHistory(getOrders().slice(0, 5));
+    setHistory(getRecentInvoices());
+  }, []);
+
+  const show = useCallback(async (value: string) => {
+    const id = value.trim().toUpperCase();
+    setQuery(value);
+    if (!id) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+        cache: "no-store",
+      });
+      setResult(response.ok ? ((await response.json()) as ApiOrder) : null);
+    } catch {
+      setResult(null);
+    } finally {
+      setSearched(true);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (!initialId) return;
-    setQuery(initialId);
-    setResult(findOrder(initialId));
-    setSearched(true);
-  }, [initialId]);
+    if (initialId) void show(initialId);
+  }, [initialId, show]);
 
-  function show(value: string) {
-    setResult(findOrder(value));
-    setSearched(true);
-  }
-
-  function selectHistory(order: Order) {
-    setQuery(order.id);
-    setResult(order);
-    setSearched(true);
+  function selectHistory(entry: RecentInvoice) {
+    void show(entry.ref);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     resultRef.current?.scrollIntoView({
       behavior: reduce ? "auto" : "smooth",
@@ -90,7 +134,7 @@ export function InvoiceClient() {
           className="relative mx-auto mt-7 flex max-w-xl gap-1.5 rounded-full bg-white p-1.5 text-left shadow-[0_0_0_4px_rgba(255,219,89,0.35)]"
           onSubmit={(event) => {
             event.preventDefault();
-            show(query);
+            void show(query);
           }}
         >
           <span className="grid shrink-0 place-items-center pl-3 text-leaf">
@@ -108,8 +152,12 @@ export function InvoiceClient() {
             spellCheck={false}
             className="min-w-0 flex-1 bg-transparent px-2 font-display text-base font-bold uppercase tracking-[0.04em] text-ink outline-none placeholder:text-moss/60"
           />
-          <button type="submit" className="btn btn-red min-h-[44px] shrink-0 px-5">
-            Lacak
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn-red min-h-[44px] shrink-0 px-5 disabled:opacity-60"
+          >
+            {loading ? "Mencari…" : "Lacak"}
           </button>
         </form>
       </section>
@@ -122,16 +170,22 @@ export function InvoiceClient() {
               copy="Masukkan kode invoice di atas, atau pilih salah satu dari riwayat di samping."
               cta={!history.length}
             />
+          ) : loading ? (
+            <div className="card shadow-off p-8 text-center sm:p-10">
+              <h3 className="font-display text-2xl font-black">
+                Mencari transaksi…
+              </h3>
+            </div>
           ) : result ? (
             <Ticket
               order={result}
               copied={copied}
-              onCopy={() => copyCode(result.id)}
+              onCopy={() => copyCode(result.inv)}
             />
           ) : (
             <EmptyTicket
               title={`${query.trim().toUpperCase() || "Kode"} nggak ketemu`}
-              copy="Cek lagi kodenya ya. Riwayat cuma tersimpan di browser tempat kamu bertransaksi."
+              copy="Cek lagi kodenya ya. Pastikan invoice yang dimasukkan sudah benar."
               cta={false}
             />
           )}
@@ -139,7 +193,9 @@ export function InvoiceClient() {
 
         <aside>
           <div className="flex items-end justify-between">
-            <h2 className="font-display text-2xl font-extrabold">Terakhir kamu beli</h2>
+            <h2 className="font-display text-2xl font-extrabold">
+              Terakhir kamu beli
+            </h2>
             <span className="text-xs font-semibold text-moss">5 terbaru</span>
           </div>
 
@@ -149,13 +205,13 @@ export function InvoiceClient() {
               aria-hidden="true"
             />
             {history.length ? (
-              history.map((order) => {
-                const active = result?.id === order.id;
+              history.map((entry) => {
+                const active = result?.inv === entry.ref;
                 return (
                   <button
-                    key={order.id}
+                    key={entry.ref}
                     type="button"
-                    onClick={() => selectHistory(order)}
+                    onClick={() => selectHistory(entry)}
                     className={`card relative w-full p-4 text-left transition hover:-translate-y-0.5 ${
                       active ? "border-leaf" : ""
                     }`}
@@ -168,13 +224,15 @@ export function InvoiceClient() {
                     </span>
                     <span className="flex justify-between gap-3">
                       <span className="min-w-0">
-                        <span className="block truncate font-bold">{order.item}</span>
+                        <span className="block truncate font-bold">
+                          {entry.label}
+                        </span>
                         <span className="mt-0.5 block text-xs text-moss">
-                          {order.id} · {formatDate(order.createdAt)}
+                          {entry.ref} · {formatDate(entry.createdAt)}
                         </span>
                       </span>
                       <span className="shrink-0 font-display font-extrabold text-leaf">
-                        {formatRupiah(order.amount)}
+                        {formatRupiah(entry.amount)}
                       </span>
                     </span>
                   </button>
@@ -195,8 +253,8 @@ export function InvoiceClient() {
             <p>
               <b>Pembayaran dicek manual.</b>{" "}
               <span className="text-moss">
-                Status berubah setelah admin memverifikasi QRIS. Data tersimpan di
-                browser ini.
+                Status diambil langsung dari server. Riwayat lokal cuma menyimpan
+                kode invoice di browser ini.
               </span>
             </p>
           </div>
@@ -236,14 +294,21 @@ function Ticket({
   copied,
   onCopy,
 }: {
-  order: Order;
+  order: ApiOrder;
   copied: boolean;
   onCopy: () => void;
 }) {
-  const service = services[order.slug];
+  const target =
+    order.lines.find(([label]) => /tujuan/i.test(label))?.[1] ?? "-";
   const waUrl = `${ADMIN_WHATSAPP_URL}?text=${encodeURIComponent(
-    `Halo admin Maneela, saya ingin cek pesanan ${order.id}.`,
+    `Halo admin Maneela, saya ingin cek pesanan ${order.inv}.`,
   )}`;
+  const progress =
+    order.status === "success"
+      ? "100%"
+      : order.status === "processing"
+        ? "66%"
+        : "33%";
 
   return (
     <article className="card shadow-off">
@@ -251,47 +316,56 @@ function Ticket({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-leaf text-cream">
-              <ServiceIcon slug={order.slug} className="h-6 w-6" />
+              <Icon name="receipt" className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-moss">{order.product}</div>
+              <div className="text-xs font-semibold text-moss">{order.service}</div>
               <div className="break-words font-display text-lg font-extrabold leading-tight">
-                {order.item}
+                {order.product}
               </div>
             </div>
           </div>
           <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-sun px-3 py-1.5 text-xs font-bold text-ink">
             <span className="dot" />
-            Sedang diproses
+            {statusText[order.status]}
           </span>
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-2">
-          {steps.map((step, index) => (
-            <div key={step.label} className="flex items-center gap-2 text-[13px] font-semibold">
-              <i
-                className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full ${
-                  index === 0
-                    ? "bg-leaf text-cream"
-                    : index === 1
-                      ? "bg-sun text-leaf"
-                      : "border border-leaf/25 bg-cream text-moss"
-                }`}
+          {steps.map((step, index) => {
+            const state = stepState(index, order.status);
+            return (
+              <div
+                key={step.label}
+                className="flex items-center gap-2 text-[13px] font-semibold"
               >
-                {index === 0 ? (
-                  <Icon name="check" className="h-3 w-3" />
-                ) : index === 1 ? (
-                  <span className="h-1.5 w-1.5 rounded-full bg-leaf" />
-                ) : (
-                  "3"
-                )}
-              </i>
-              {step.label}
-            </div>
-          ))}
+                <i
+                  className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full ${
+                    state === "done"
+                      ? "bg-leaf text-cream"
+                      : state === "current"
+                        ? "bg-sun text-leaf"
+                        : "border border-leaf/25 bg-cream text-moss"
+                  }`}
+                >
+                  {state === "done" ? (
+                    <Icon name="check" className="h-3 w-3" />
+                  ) : state === "current" ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-leaf" />
+                  ) : (
+                    index + 1
+                  )}
+                </i>
+                {step.label}
+              </div>
+            );
+          })}
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-leaf/10">
-          <div className="h-full w-1/2 rounded-full bg-leaf" />
+          <div
+            className="h-full rounded-full bg-leaf transition-all"
+            style={{ width: progress }}
+          />
         </div>
       </div>
 
@@ -311,7 +385,7 @@ function Ticket({
           <div>
             <div className="text-xs text-moss">Kode invoice</div>
             <div className="font-display text-2xl font-black tracking-wide">
-              {order.id}
+              {order.inv}
             </div>
           </div>
           <button
@@ -325,11 +399,11 @@ function Ticket({
         </div>
 
         {[
-          ["Waktu", formatDate(order.createdAt)],
-          ["Tujuan", order.target],
-          ["Provider", order.provider],
-          ["Metode bayar", "QRIS"],
-          ["Harga", formatRupiah(order.amount)],
+          ["Waktu", formatDate(order.created)],
+          ["Tujuan", target],
+          ["Layanan", order.service],
+          ["Metode bayar", order.method],
+          ["Status", statusText[order.status]],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -340,10 +414,21 @@ function Ticket({
           </div>
         ))}
 
+        {order.sn ? (
+          <div className="mt-4 rounded-xl border border-leaf/20 bg-cream p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-moss">
+              {order.label}
+            </p>
+            <p className="mt-1 break-all font-display text-xl font-black text-leaf">
+              {order.sn}
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-4 flex items-end justify-between border-t border-line pt-4">
           <span className="text-moss">Total dibayar</span>
           <span className="font-display text-3xl font-black text-leaf">
-            {formatRupiah(order.amount)}
+            {formatRupiah(order.total)}
           </span>
         </div>
 
@@ -357,7 +442,7 @@ function Ticket({
             Tanya admin soal pesanan ini →
           </a>
           <span className="text-moss">
-            {service ? "Pembayaran QRIS dicek manual oleh admin." : ""}
+            Pembayaran QRIS dicek manual oleh admin.
           </span>
         </div>
       </div>

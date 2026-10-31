@@ -1,31 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  billFor,
   detectOperator,
   formatRupiah,
-  isSlug,
   itemsFor,
   normalizePhone,
   providerInitials,
   serviceSlugs,
   services,
-  type Bill,
   type Item,
-  type Slug,
+  type Service,
 } from "@/lib/catalog";
 import { Icon, ServiceIcon } from "./Icon";
 
-export function ProdukClient() {
+export function ProdukClient({ service }: { service: Service }) {
   const router = useRouter();
-  const params = useSearchParams();
-  const requested = params.get("s");
-  const slug: Slug = isSlug(requested) ? requested : "pulsa";
-  const service = services[slug];
-  const query = params.toString();
+  const slug = service.slug;
 
   const [target, setTarget] = useState("");
   const [provider, setProvider] = useState<string | null>(
@@ -38,18 +31,8 @@ export function ProdukClient() {
   const [selected, setSelected] = useState<number | null>(null);
 
   useEffect(() => {
-    const next = services[slug];
-    setTarget("");
-    setProvider(
-      next.phone
-        ? null
-        : next.providers.length === 1
-          ? next.providers[0]
-          : null,
-    );
-    setSelected(null);
-    document.title = `${next.name} · Maneela`;
-  }, [slug, query]);
+    document.title = `${service.name} · Maneela`;
+  }, [service.name]);
 
   const normalized = normalizePhone(target);
   const operator = service.phone ? detectOperator(target) : null;
@@ -58,12 +41,12 @@ export function ProdukClient() {
     ? !!operator && normalized.length >= 10
     : target.trim().replace(/\s/g, "").length >= 5;
 
-  const billItem: Bill | null =
+  const billItem: Item | null =
     service.bill && activeProvider && target.replace(/\D/g, "").length >= 6
-      ? billFor(slug, activeProvider, target)
+      ? service.billItem ?? null
       : null;
   const list = service.bill ? [] : itemsFor(service, activeProvider);
-  const item: Item | Bill | null = service.bill
+  const item: Item | null = service.bill
     ? billItem
     : selected !== null
       ? list[selected] ?? null
@@ -93,6 +76,8 @@ export function ProdukClient() {
       i: item.name,
       n: service.phone ? normalized : target.trim(),
       a: String(item.price),
+      sid: service.dbServiceId ?? "",
+      pid: item.id ?? "",
     });
     router.push(`/bayar/?${next.toString()}`);
   }
@@ -211,7 +196,7 @@ export function ProdukClient() {
                       ? "Operator tidak dikenali, cek lagi nomornya."
                       : "Operator terdeteksi otomatis. Bisa pakai awalan 08 atau 62."
                   : service.bill
-                    ? "Tagihan muncul otomatis setelah ID diisi (data simulasi)."
+                    ? "Nominal tagihan dari katalog, dicek admin."
                     : "Pastikan nomor/ID sudah benar sebelum bayar."}
               </p>
             </div>
@@ -261,27 +246,19 @@ export function ProdukClient() {
                   <div className="rounded-2xl border border-dashed border-leaf/30 bg-cream p-5">
                     <div className="flex justify-between gap-3">
                       <div>
-                        <div className="text-xs text-moss">Nama pelanggan</div>
-                        <div className="font-bold">{billItem.customer}</div>
+                        <div className="text-xs text-moss">Nominal tagihan</div>
+                        <div className="font-bold">{billItem.name}</div>
                       </div>
                       <span className="badge h-fit text-xs">Belum dibayar</span>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <div className="text-xs text-moss">Periode</div>
-                        <b>{billItem.period}</b>
-                      </div>
-                      <div>
                         <div className="text-xs text-moss">Provider</div>
                         <b>{activeProvider}</b>
                       </div>
                       <div>
-                        <div className="text-xs text-moss">Tagihan</div>
-                        <b>{formatRupiah(billItem.base)}</b>
-                      </div>
-                      <div>
-                        <div className="text-xs text-moss">Admin</div>
-                        <b>{formatRupiah(billItem.admin)}</b>
+                        <div className="text-xs text-moss">Tujuan</div>
+                        <b className="break-all">{target.trim()}</b>
                       </div>
                     </div>
                     <div className="mt-4 flex items-end justify-between border-t border-dashed border-leaf/20 pt-3">
@@ -290,7 +267,9 @@ export function ProdukClient() {
                         {formatRupiah(billItem.price)}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-moss">Data tagihan masih simulasi.</p>
+                    <p className="mt-2 text-xs text-moss">
+                      Nominal dari katalog. Dicek admin sebelum diproses.
+                    </p>
                   </div>
                 ) : (
                   <p className="rounded-2xl border border-dashed border-leaf/25 p-5 text-sm text-moss">
